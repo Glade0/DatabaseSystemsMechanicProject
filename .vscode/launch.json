@@ -1,0 +1,77 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "DatabaseConnection",
+            "request": "launch",
+            "mainClass": "DatabaseConnection",
+            "projectName": "3_4c6d8d16"
+        },
+        {
+            "type": "java",
+            "name": "AppointmentsGUI",
+            "request": "launch",
+            "mainClass": "AppointmentsGUI",
+            "projectName": "3_4c6d8d16"
+        },
+        {
+            "type": "java",
+            "name": "TestConnection",
+            "request": "launch",
+            "mainClass": "TestConnection",
+            "projectName": "3_4c6d8d16"
+        },
+        {
+            "type": "java",
+            "name": "TestConnection",
+            "request": "launch",
+            "mainClass": "TestConnection",
+            "projectName": "2_4c6d8d15"
+        },
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Application",
+            "request": "launch",
+            "mainClass": "Application",
+            "projectName": "2_4c6d8d15"
+        },
+        {
+            "type": "java",
+            "name": "AppointmentGUI",
+            "request": "launch",
+            "mainClass": "AppointmentGUI",
+            "projectName": "2_4c6d8d15"
+        },
+        {
+            "type": "java",
+            "name": "AppointmentsGUI",
+            "request": "launch",
+            "mainClass": "AppointmentsGUI",
+            "projectName": "2_4c6d8d15"
+        },
+        {
+            "type": "java",
+            "name": "newGUI",
+            "request": "launch",
+            "mainClass": "newGUI",
+            "projectName": "2_4c6d8d15"
+        },
+        {
+            "type": "java",
+            "name": "Run Main",
+            "request": "launch",
+            "mainClass": "newGUI",
+            "vmArgs": "-cp jars/mssql-jdbc-12.10.0.jre11.jar;."
+        }
+    ]
+}
