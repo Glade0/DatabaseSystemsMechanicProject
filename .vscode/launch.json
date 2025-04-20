@@ -6,6 +6,55 @@
     "configurations": [
         {
             "type": "java",
+            "name": "SQLFunctions",
+            "request": "launch",
+            "mainClass": "SQLFunctions",
+            "projectName": "6_4c6d8d19"
+        },
+        {
+            "type": "java",
+            "name": "SQLFunctions",
+            "request": "launch",
+            "mainClass": "SQLFunctions",
+            "projectName": "5_4c6d8d18"
+        },
+        {
+            "type": "java",
+            "name": "SQLFunctions",
+            "request": "launch",
+            "mainClass": "SQLFunctions",
+            "projectName": "4_4c6d8d17"
+        },
+        {
+            "type": "java",
+            "name": "NewGUI",
+            "request": "launch",
+            "mainClass": "NewGUI",
+            "projectName": "4_4c6d8d17"
+        },
+        {
+            "type": "java",
+            "name": "DatabaseConnection",
+            "request": "launch",
+            "mainClass": "DatabaseConnection",
+            "projectName": "4_4c6d8d17"
+        },
+        {
+            "type": "java",
+            "name": "SQLSetFunctions",
+            "request": "launch",
+            "mainClass": "SQLSetFunctions",
+            "projectName": "4_4c6d8d17"
+        },
+        {
+            "type": "java",
+            "name": "Application",
+            "request": "launch",
+            "mainClass": "Application",
+            "projectName": "3_4c6d8d16"
+        },
+        {
+            "type": "java",
             "name": "DatabaseConnection",
             "request": "launch",
             "mainClass": "DatabaseConnection",
