@@ -480,13 +480,33 @@ public static List<Map<String, String>> getAllAppointments(Connection connection
             appointment.put("serviceName", rs.getString("ServiceName"));
             appointment.put("serviceCost", "$" + rs.getDouble("ServiceCost"));
             appointment.put("date", rs.getString("FormattedDate"));
-            appointment.put("time", rs.getString("AppointmentTime"));
+            appointment.put("time", formatMilitaryTime(rs.getString("AppointmentTime")));
             
             appointments.add(appointment);
         }
     }
     
     return appointments;
+}
+
+// Helper function to format time as military time without leading zeros on hours
+public static String formatMilitaryTime(String timeString) {
+    if (timeString == null || timeString.isEmpty()) {
+        return timeString;
+    }
+    
+    try {
+        // Parse the time (assuming it's in a standard format like "HH:MM:SS" or "HH:MM")
+        String[] timeParts = timeString.split(":");
+        int hours = Integer.parseInt(timeParts[0]);
+        int minutes = Integer.parseInt(timeParts[1]);
+        
+        // Format as military time without leading zeros on hours
+        return hours + ":" + (minutes < 10 ? "0" + minutes : minutes);
+    } catch (Exception e) {
+        // If any parsing error occurs, return the original time
+        return timeString;
+    }
 }
 
 // Helper function to get car ID by details string with improved error handling
