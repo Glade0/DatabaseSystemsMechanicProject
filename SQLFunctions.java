@@ -319,6 +319,7 @@ public static void linkCarToCustomer(Connection connection, int customerId, int 
     String sql = "INSERT INTO CustomerCars (Customer_ID, Car_ID) VALUES (?, ?)";
     executeUpdate(connection, sql, customerId, carId);
 }
+//Make it a function in SQL specicifcally
 
 // Function to get customer ID by full name
 public static int getCustomerIdByName(Connection connection, String fullName) throws SQLException {

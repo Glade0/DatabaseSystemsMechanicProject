@@ -3,7 +3,10 @@
  import java.util.Arrays;
  import java.util.HashMap;
  import javax.swing.*;
- import java.sql.Connection;
+import javax.swing.table.TableModel;
+import javax.swing.table.TableRowSorter;
+
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -75,24 +78,28 @@ import java.sql.SQLException;
   }
  
     // Add Customer Button
-    JButton addCustomerButton = new JButton("Add Customer");
-    addCustomerButton.addActionListener(e -> {
-   String customerFirstName = JOptionPane.showInputDialog(frame, "Enter Customer First Name:"); // Get first name
-   String customerLastName = JOptionPane.showInputDialog(frame, "Enter Customer Last Name:"); // Get last name
-   String customerPhone = JOptionPane.showInputDialog(frame, "Enter Customer Phone Number:");
-   if (customerFirstName != null && customerLastName != null && customerPhone != null) { //Check for both names
-   try (Connection conn = SQLFunctions.getConnection()) {
-   SQLFunctions.addCustomer(conn, customerFirstName, customerLastName, customerPhone); // Call addCustomer with first and last name
-   customerModel.addElement(customerFirstName + " " + customerLastName); // Add to dropdown (full name)
-   customerCars.put(customerFirstName + " " + customerLastName, new ArrayList<>()); // Initialize car list for the customer
-   JOptionPane.showMessageDialog(frame, "Customer Added: " + customerFirstName + " " + customerLastName + ", " + customerPhone); //Display full name
-   } catch (SQLException ex) {
-   JOptionPane.showMessageDialog(frame, "DB Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-   ex.printStackTrace();
-   }
-   }
-    });
-    frame.add(addCustomerButton);
+JButton addCustomerButton = new JButton("Add Customer");
+addCustomerButton.addActionListener(e -> {
+    String customerFirstName = JOptionPane.showInputDialog(frame, "Enter Customer First Name:"); // Get first name
+    if (customerFirstName == null) return; // Exit if canceled
+    
+    String customerLastName = JOptionPane.showInputDialog(frame, "Enter Customer Last Name:"); // Get last name
+    if (customerLastName == null) return; // Exit if canceled
+    
+    String customerPhone = JOptionPane.showInputDialog(frame, "Enter Customer Phone Number:");
+    if (customerPhone == null) return; // Exit if canceled
+    
+    try (Connection conn = SQLFunctions.getConnection()) {
+        SQLFunctions.addCustomer(conn, customerFirstName, customerLastName, customerPhone); // Call addCustomer with first and last name
+        customerModel.addElement(customerFirstName + " " + customerLastName); // Add to dropdown (full name)
+        customerCars.put(customerFirstName + " " + customerLastName, new ArrayList<>()); // Initialize car list for the customer
+        JOptionPane.showMessageDialog(frame, "Customer Added: " + customerFirstName + " " + customerLastName + ", " + customerPhone); //Display full name
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(frame, "DB Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        ex.printStackTrace();
+    }
+});
+frame.add(addCustomerButton);
 
   // Add Car Button
   JButton addCarButton = new JButton("Add Car");
@@ -319,349 +326,362 @@ assignServiceButton.addActionListener(e -> {
  
 
   JButton createAppointmentButton = new JButton("Create Appointment");
-  createAppointmentButton.addActionListener(e -> {
-      try (Connection conn = SQLFunctions.getConnection()) {
-          // 1. Date & Time Selection (moved to be first)
-          String[] timeSlots = { 
-              "09:00", "10:00", "11:00", "12:00", "13:00", 
-              "14:00", "15:00", "16:00", "17:00" 
-          };
-          JComboBox<String> timeDropdown = new JComboBox<>(timeSlots);
-          
-          String[] appointmentDays = { 
-              "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", 
-              "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", 
-              "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31" 
-          };
-          String[] appointmentMonths = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" };
-          
-          JComboBox<String> dateDropdown = new JComboBox<>(appointmentDays);
-          JComboBox<String> monthsDropdown = new JComboBox<>(appointmentMonths);
-          
-          // Create panel for date/time selection
-          JPanel dateTimePanel = new JPanel(new GridLayout(0, 1));
-          dateTimePanel.add(new JLabel("Select Date (Day/Month):"));
-          
-          JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-          datePanel.add(dateDropdown);
-          datePanel.add(new JLabel("/"));
-          datePanel.add(monthsDropdown);
-          dateTimePanel.add(datePanel);
-          
-          dateTimePanel.add(new JLabel("Select Time:"));
-          dateTimePanel.add(timeDropdown);
-          
-          int dateTimeResult = JOptionPane.showConfirmDialog(
-              frame, dateTimePanel, "Pick Date and Time", JOptionPane.OK_CANCEL_OPTION
-          );
-          
-          if (dateTimeResult != JOptionPane.OK_OPTION) return;
-          
-          String selectedTime = (String) timeDropdown.getSelectedItem();
-          String selectedDay = (String) dateDropdown.getSelectedItem();
-          String selectedMonth = (String) monthsDropdown.getSelectedItem();
-          
-          if (selectedTime == null || selectedDay == null || selectedMonth == null) {
-              JOptionPane.showMessageDialog(
-                  frame, "Date and time must be selected!", 
-                  "Validation Error", JOptionPane.ERROR_MESSAGE
-              );
-              return;
-          }
-          
-          // Format date as day/month for display
-          String appointmentDate = selectedDay + "/" + selectedMonth;
-          
-          // 2. Customer Selection
-          String[] customers = new String[customerModel.getSize()];
-          for (int i = 0; i < customerModel.getSize(); i++) {
-              customers[i] = customerModel.getElementAt(i);
-          }
-          
-          String selectedCustomer = (String) JOptionPane.showInputDialog(
-              frame, "Select Customer:", "Create Appointment",
-              JOptionPane.QUESTION_MESSAGE, null, customers, null
-          );
-          
-          if (selectedCustomer == null) return;
-          int customerId = SQLFunctions.getCustomerIdByName(conn, selectedCustomer);
-          
-          // 3. Car Selection (Get from DB)
-          String carQuery = 
-              "SELECT mm.Make, mm.Model, c.LicensePlate, c.CAR_ID " +
-              "FROM CustomerCars cc " +
-              "JOIN Cars c ON cc.Car_ID = c.CAR_ID " +
-              "JOIN MakeModel mm ON c.MakeModel_ID = mm.MM_ID " +
-              "WHERE cc.Customer_ID = ?";
-          
-          PreparedStatement carStmt = conn.prepareStatement(carQuery);
-          carStmt.setInt(1, customerId);
-          ResultSet carRs = carStmt.executeQuery();
-          
-          ArrayList<String> carsList = new ArrayList<>();
-          Map<String, Integer> carIdMap = new HashMap<>(); // To store car IDs by display name
-          
-          while (carRs.next()) {
-              String carDetails = carRs.getString("Make") + " " + 
-                                carRs.getString("Model") + " (" + 
-                                carRs.getString("LicensePlate") + ")";
-              carsList.add(carDetails);
-              carIdMap.put(carDetails, carRs.getInt("CAR_ID"));
-          }
-          
-          if (carsList.isEmpty()) {
-              JOptionPane.showMessageDialog(frame, 
-                  "No cars found for this customer. Please add a car first.", 
-                  "No Cars Available", JOptionPane.WARNING_MESSAGE);
-              return;
-          }
-          
-          // Create array for the dropdown
-          String[] carArray = carsList.toArray(new String[0]);
-          String selectedCar = (String) JOptionPane.showInputDialog(
-              frame, "Select Car:", "Create Appointment",
-              JOptionPane.QUESTION_MESSAGE, null, carArray, null
-          );
-          
-          if (selectedCar == null) return;
-          int carId = carIdMap.get(selectedCar);
-          
-          // 4. Service and Technician selection
-          // Get all available services
-          List<String> allServices = SQLFunctions.getAllServices(conn);
-          if (allServices.isEmpty()) {
-              JOptionPane.showMessageDialog(frame, 
-                  "No services available. Please add services first.", 
-                  "No Services", JOptionPane.WARNING_MESSAGE);
-              return;
-          }
-          
-          // Create a list to store selected services and their technicians
-          List<Map<String, Object>> selectedServicesTechnicians = new ArrayList<>();
-          boolean addingServices = true;
-          
-          // 4a. Service and Technician selection loop
-          while (addingServices) {
-              // Display services that haven't been selected yet
-              List<String> availableServices = new ArrayList<>(allServices);
-              for (Map<String, Object> entry : selectedServicesTechnicians) {
-                  availableServices.remove(entry.get("service"));
-              }
-              
-              if (availableServices.isEmpty()) {
-                  JOptionPane.showMessageDialog(frame, 
-                      "All services have been selected.", 
-                      "Services Complete", JOptionPane.INFORMATION_MESSAGE);
-                  break;
-              }
-              
-              // Select a service
-              String[] serviceArray = availableServices.toArray(new String[0]);
-              String selectedService = (String) JOptionPane.showInputDialog(
-                  frame, "Select Service:", "Create Appointment",
-                  JOptionPane.QUESTION_MESSAGE, null, serviceArray, null
-              );
-              
-              if (selectedService == null && selectedServicesTechnicians.isEmpty()) {
-                  // User canceled without selecting any services
-                  return;
-              } else if (selectedService == null) {
-                  // User is done selecting services
-                  break;
-              }
-              
-              // Get service ID
-              int serviceId = SQLFunctions.getServiceIdByName(conn, selectedService);
-              
-              // Get technicians who can perform this service
-              String techQuery = 
-                  "SELECT t.TECH_ID, t.FirstName, t.LastName " +
-                  "FROM TechsServices ts " +
-                  "JOIN Technicians t ON ts.TECH_ID = t.TECH_ID " +
-                  "WHERE ts.SERVICE_ID = ?";
-              
-              PreparedStatement techStmt = conn.prepareStatement(techQuery);
-              techStmt.setInt(1, serviceId);
-              ResultSet techRs = techStmt.executeQuery();
-              
-              ArrayList<String> techsList = new ArrayList<>();
-              Map<String, Integer> techIdMap = new HashMap<>();
-              
-              while (techRs.next()) {
-                  String techName = techRs.getString("FirstName") + " " + techRs.getString("LastName");
-                  techsList.add(techName);
-                  techIdMap.put(techName, techRs.getInt("TECH_ID"));
-              }
-              
-              if (techsList.isEmpty()) {
-                  JOptionPane.showMessageDialog(frame, 
-                      "No technicians available for " + selectedService + ". Please assign technicians to this service.", 
-                      "No Technicians", JOptionPane.WARNING_MESSAGE);
-                  continue;
-              }
-              
-              // Select a technician for this service
-              String[] techArray = techsList.toArray(new String[0]);
-              String selectedTechnician = (String) JOptionPane.showInputDialog(
-                  frame, "Select Technician for " + selectedService + ":", "Create Appointment",
-                  JOptionPane.QUESTION_MESSAGE, null, techArray, null
-              );
-              
-              if (selectedTechnician == null) {
-                  // User canceled technician selection
-                  continue;
-              }
-              
-              int technicianId = techIdMap.get(selectedTechnician);
-              
-              // Add to our selected services
-              Map<String, Object> serviceEntry = new HashMap<>();
-              serviceEntry.put("service", selectedService);
-              serviceEntry.put("serviceId", serviceId);
-              serviceEntry.put("technician", selectedTechnician);
-              serviceEntry.put("technicianId", technicianId);
-              selectedServicesTechnicians.add(serviceEntry);
-              
-              // Ask if they want to add more services
-              int addMore = JOptionPane.showConfirmDialog(
-                  frame, "Add another service to this appointment?",
-                  "Add More Services", JOptionPane.YES_NO_OPTION
-              );
-              addingServices = (addMore == JOptionPane.YES_OPTION);
-          }
-          
-          // Make sure at least one service was selected
-          if (selectedServicesTechnicians.isEmpty()) {
-              JOptionPane.showMessageDialog(frame, 
-                  "You must select at least one service for the appointment.", 
-                  "No Services Selected", JOptionPane.WARNING_MESSAGE);
-              return;
-          }
-          
-          // Create summary panel to show all selections
-          JPanel summaryPanel = new JPanel(new GridLayout(0, 1));
-          summaryPanel.add(new JLabel("Selected Date: " + appointmentDate));
-          summaryPanel.add(new JLabel("Selected Time: " + selectedTime));
-          summaryPanel.add(new JLabel("Selected Customer: " + selectedCustomer));
-          summaryPanel.add(new JLabel("Selected Car: " + selectedCar));
-          
-          // Show selected services and technicians
-          summaryPanel.add(new JLabel("Selected Services:"));
-          for (Map<String, Object> entry : selectedServicesTechnicians) {
-              summaryPanel.add(new JLabel("• " + entry.get("service") + " - Technician: " + entry.get("technician")));
-          }
-          
-          int confirmResult = JOptionPane.showConfirmDialog(
-              frame, summaryPanel, "Confirm Appointment", JOptionPane.OK_CANCEL_OPTION
-          );
-          
-          if (confirmResult == JOptionPane.OK_OPTION) {
-              // Create customer-car relationship if it doesn't exist
-              int customerCarId = SQLFunctions.getOrCreateCustomerCar(conn, customerId, carId);
-              
-              // Begin transaction
-              conn.setAutoCommit(false);
-              try {
-                  // Create appointment date/time entry
-                  String dateTimeSql = "INSERT INTO CustomerAppointmentDateTime (CUST_CAR_ID, AppointmentDate, AppointmentTime) VALUES (?, ?, ?)";
-                  
-                  // Parse date components
-                  // Format for SQL Server (YYYY-MM-DD)
-                  String formattedDate = "2024-" + 
-                                        (Integer.parseInt(selectedMonth) < 10 ? "0" + selectedMonth : selectedMonth) + "-" + 
-                                        (Integer.parseInt(selectedDay) < 10 ? "0" + selectedDay : selectedDay);
-                  
-                  PreparedStatement dateTimeStmt = conn.prepareStatement(dateTimeSql, new String[]{"APPOINTMENT_DATE_TIME_ID"});
-                  dateTimeStmt.setInt(1, customerCarId);
-                  dateTimeStmt.setString(2, formattedDate);
-                  dateTimeStmt.setString(3, selectedTime);
-                  dateTimeStmt.executeUpdate();
-                  
-                  ResultSet rs = dateTimeStmt.getGeneratedKeys();
-                  int appointmentDateTimeId = 0;
-                  if (rs.next()) {
-                      appointmentDateTimeId = rs.getInt(1);
-                  } else {
-                      throw new SQLException("Failed to get ID for new appointment datetime");
-                  }
-                  
-                  // For each service, create the appointment service entry
-                  for (Map<String, Object> serviceEntry : selectedServicesTechnicians) {
-                      int techId = (int) serviceEntry.get("technicianId");
-                      int servId = (int) serviceEntry.get("serviceId");
-                      
-                      // Get or create tech-service relationship
-                      int techServiceId = SQLFunctions.getOrCreateTechService(conn, techId, servId);
-                      
-                      // Create appointment service entry
-                      String serviceSql = "INSERT INTO CustomerAppointmentService (CAR_DATE_TIME_ID, TECHNICAN_SERIVCE_ID) VALUES (?, ?)";
-                      PreparedStatement serviceStmt = conn.prepareStatement(serviceSql);
-                      serviceStmt.setInt(1, appointmentDateTimeId);
-                      serviceStmt.setInt(2, techServiceId);
-                      serviceStmt.executeUpdate();
-                  }
-                  
-                  // Commit transaction
-                  conn.commit();
-                  
-                  // Build details for confirmation message
-                  StringBuilder detailsBuilder = new StringBuilder();
-                  detailsBuilder.append("Date: ").append(appointmentDate).append("\n");
-                  detailsBuilder.append("Time: ").append(selectedTime).append("\n");
-                  detailsBuilder.append("Customer: ").append(selectedCustomer).append("\n");
-                  detailsBuilder.append("Car: ").append(selectedCar).append("\n");
-                  detailsBuilder.append("Services:\n");
-                  
-                  double totalCost = 0;
-                  for (Map<String, Object> entry : selectedServicesTechnicians) {
-                      String serviceName = (String) entry.get("service");
-                      String techName = (String) entry.get("technician");
-                      
-                      // Get service cost
-                      String costQuery = "SELECT Cost FROM Services WHERE ServiceName = ?";
-                      PreparedStatement costStmt = conn.prepareStatement(costQuery);
-                      costStmt.setString(1, serviceName);
-                      ResultSet costRs = costStmt.executeQuery();
-                      
-                      double serviceCost = 0;
-                      if (costRs.next()) {
-                          serviceCost = costRs.getDouble("Cost");
-                          totalCost += serviceCost;
-                      }
-                      
-                      detailsBuilder.append("• ").append(serviceName)
-                                  .append(" - $").append(String.format("%.2f", serviceCost))
-                                  .append(" (Technician: ").append(techName).append(")\n");
-                  }
-                  
-                  detailsBuilder.append("\nTotal Cost: $").append(String.format("%.2f", totalCost));
-                  
-                  // Show confirmation
-                  JOptionPane.showMessageDialog(
-                      frame, "Appointment Created Successfully!\n\n" + detailsBuilder.toString(),
-                      "Appointment Created", JOptionPane.INFORMATION_MESSAGE
-                  );
-                  
-              } catch (SQLException ex) {
-                  conn.rollback();
-                  throw ex;
-              } finally {
-                  conn.setAutoCommit(true);
-              }
-          }
-      } catch (SQLException ex) {
-          JOptionPane.showMessageDialog(
-              frame, "Database error: " + ex.getMessage(), 
-              "Error", JOptionPane.ERROR_MESSAGE
-          );
-          ex.printStackTrace();
-      }
-  });
-  frame.add(createAppointmentButton);
+createAppointmentButton.addActionListener(e -> {
+    try (Connection conn = SQLFunctions.getConnection()) {
+        // 1. Date & Time Selection (with improved UI)
+        // Create time slots with AM/PM format
+        String[] timeSlots = { 
+            "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
+            "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM" 
+        };
+        JComboBox<String> timeDropdown = new JComboBox<>(timeSlots);
+        
+        // Create a more user-friendly date selection panel
+        JPanel dateTimePanel = new JPanel(new GridLayout(0, 1));
+        dateTimePanel.add(new JLabel("Select Date:"));
+        
+        // Create month names instead of numbers
+        String[] months = {
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        };
+        JComboBox<String> monthsDropdown = new JComboBox<>(months);
+        
+        // Days array
+        String[] appointmentDays = { 
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", 
+            "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", 
+            "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31" 
+        };
+        JComboBox<String> dateDropdown = new JComboBox<>(appointmentDays);
+        
+        // Year dropdown (optional - you may want to add future years)
+        String[] years = {"2024", "2025"};
+        JComboBox<String> yearDropdown = new JComboBox<>(years);
+        
+        // Create a panel with a nice layout for the date components
+        JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        datePanel.add(new JLabel("Month:"));
+        datePanel.add(monthsDropdown);
+        datePanel.add(new JLabel("  Day:"));
+        datePanel.add(dateDropdown);
+        datePanel.add(new JLabel("  Year:"));
+        datePanel.add(yearDropdown);
+        dateTimePanel.add(datePanel);
+        
+        dateTimePanel.add(new JLabel("Select Time:"));
+        dateTimePanel.add(timeDropdown);
+        
+        int dateTimeResult = JOptionPane.showConfirmDialog(
+            frame, dateTimePanel, "Pick Date and Time", JOptionPane.OK_CANCEL_OPTION
+        );
+        
+        if (dateTimeResult != JOptionPane.OK_OPTION) return;
+        
+        String selectedTime = (String) timeDropdown.getSelectedItem();
+        String selectedDay = (String) dateDropdown.getSelectedItem();
+        String selectedMonth = String.valueOf(monthsDropdown.getSelectedIndex() + 1); // Convert month name to number
+        String selectedYear = (String) yearDropdown.getSelectedItem();
+        
+        if (selectedTime == null || selectedDay == null || selectedMonth == null || selectedYear == null) {
+            JOptionPane.showMessageDialog(
+                frame, "Date and time must be selected!", 
+                "Validation Error", JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+        
+        // Format date as Month Day, Year for display
+        String monthName = months[Integer.parseInt(selectedMonth) - 1];
+        String appointmentDate = monthName + " " + selectedDay + ", " + selectedYear;
+        
+        // 2. Customer Selection
+        String[] customers = new String[customerModel.getSize()];
+        for (int i = 0; i < customerModel.getSize(); i++) {
+            customers[i] = customerModel.getElementAt(i);
+        }
+        
+        String selectedCustomer = (String) JOptionPane.showInputDialog(
+            frame, "Select Customer:", "Create Appointment",
+            JOptionPane.QUESTION_MESSAGE, null, customers, null
+        );
+        
+        if (selectedCustomer == null) return;
+        int customerId = SQLFunctions.getCustomerIdByName(conn, selectedCustomer);
+        
+        // 3. Car Selection (Get from DB)
+        String carQuery = 
+            "SELECT mm.Make, mm.Model, c.LicensePlate, c.CAR_ID " +
+            "FROM CustomerCars cc " +
+            "JOIN Cars c ON cc.Car_ID = c.CAR_ID " +
+            "JOIN MakeModel mm ON c.MakeModel_ID = mm.MM_ID " +
+            "WHERE cc.Customer_ID = ?";
+        
+        PreparedStatement carStmt = conn.prepareStatement(carQuery);
+        carStmt.setInt(1, customerId);
+        ResultSet carRs = carStmt.executeQuery();
+        
+        ArrayList<String> carsList = new ArrayList<>();
+        Map<String, Integer> carIdMap = new HashMap<>(); // To store car IDs by display name
+        
+        while (carRs.next()) {
+            String carDetails = carRs.getString("Make") + " " + 
+                              carRs.getString("Model") + " (" + 
+                              carRs.getString("LicensePlate") + ")";
+            carsList.add(carDetails);
+            carIdMap.put(carDetails, carRs.getInt("CAR_ID"));
+        }
+        
+        if (carsList.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, 
+                "No cars found for this customer. Please add a car first.", 
+                "No Cars Available", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Create array for the dropdown
+        String[] carArray = carsList.toArray(new String[0]);
+        String selectedCar = (String) JOptionPane.showInputDialog(
+            frame, "Select Car:", "Create Appointment",
+            JOptionPane.QUESTION_MESSAGE, null, carArray, null
+        );
+        
+        if (selectedCar == null) return;
+        int carId = carIdMap.get(selectedCar);
+        
+        // 4. Service and Technician selection
+        // Get all available services
+        List<String> allServices = SQLFunctions.getAllServices(conn);
+        if (allServices.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, 
+                "No services available. Please add services first.", 
+                "No Services", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Create a list to store selected services and their technicians
+        List<Map<String, Object>> selectedServicesTechnicians = new ArrayList<>();
+        boolean addingServices = true;
+        
+        // 4a. Service and Technician selection loop
+        while (addingServices) {
+            // Display services that haven't been selected yet
+            List<String> availableServices = new ArrayList<>(allServices);
+            for (Map<String, Object> entry : selectedServicesTechnicians) {
+                availableServices.remove(entry.get("service"));
+            }
+            
+            if (availableServices.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, 
+                    "All services have been selected.", 
+                    "Services Complete", JOptionPane.INFORMATION_MESSAGE);
+                break;
+            }
+            
+            // Select a service
+            String[] serviceArray = availableServices.toArray(new String[0]);
+            String selectedService = (String) JOptionPane.showInputDialog(
+                frame, "Select Service:", "Create Appointment",
+                JOptionPane.QUESTION_MESSAGE, null, serviceArray, null
+            );
+            
+            if (selectedService == null && selectedServicesTechnicians.isEmpty()) {
+                // User canceled without selecting any services
+                return;
+            } else if (selectedService == null) {
+                // User is done selecting services
+                break;
+            }
+            
+            // Get service ID
+            int serviceId = SQLFunctions.getServiceIdByName(conn, selectedService);
+            
+            // Get technicians who can perform this service
+            String techQuery = 
+                "SELECT t.TECH_ID, t.FirstName, t.LastName " +
+                "FROM TechsServices ts " +
+                "JOIN Technicians t ON ts.TECH_ID = t.TECH_ID " +
+                "WHERE ts.SERVICE_ID = ?";
+            
+            PreparedStatement techStmt = conn.prepareStatement(techQuery);
+            techStmt.setInt(1, serviceId);
+            ResultSet techRs = techStmt.executeQuery();
+            
+            ArrayList<String> techsList = new ArrayList<>();
+            Map<String, Integer> techIdMap = new HashMap<>();
+            
+            while (techRs.next()) {
+                String techName = techRs.getString("FirstName") + " " + techRs.getString("LastName");
+                techsList.add(techName);
+                techIdMap.put(techName, techRs.getInt("TECH_ID"));
+            }
+            
+            if (techsList.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, 
+                    "No technicians available for " + selectedService + ". Please assign technicians to this service.", 
+                    "No Technicians", JOptionPane.WARNING_MESSAGE);
+                continue;
+            }
+            
+            // Select a technician for this service
+            String[] techArray = techsList.toArray(new String[0]);
+            String selectedTechnician = (String) JOptionPane.showInputDialog(
+                frame, "Select Technician for " + selectedService + ":", "Create Appointment",
+                JOptionPane.QUESTION_MESSAGE, null, techArray, null
+            );
+            
+            if (selectedTechnician == null) {
+                // User canceled technician selection
+                continue;
+            }
+            
+            int technicianId = techIdMap.get(selectedTechnician);
+            
+            // Add to our selected services
+            Map<String, Object> serviceEntry = new HashMap<>();
+            serviceEntry.put("service", selectedService);
+            serviceEntry.put("serviceId", serviceId);
+            serviceEntry.put("technician", selectedTechnician);
+            serviceEntry.put("technicianId", technicianId);
+            selectedServicesTechnicians.add(serviceEntry);
+            
+            // Ask if they want to add more services
+            int addMore = JOptionPane.showConfirmDialog(
+                frame, "Add another service to this appointment?",
+                "Add More Services", JOptionPane.YES_NO_OPTION
+            );
+            addingServices = (addMore == JOptionPane.YES_OPTION);
+        }
+        
+        // Make sure at least one service was selected
+        if (selectedServicesTechnicians.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, 
+                "You must select at least one service for the appointment.", 
+                "No Services Selected", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Create summary panel to show all selections
+        JPanel summaryPanel = new JPanel(new GridLayout(0, 1));
+        summaryPanel.add(new JLabel("Selected Date: " + appointmentDate));
+        summaryPanel.add(new JLabel("Selected Time: " + selectedTime));
+        summaryPanel.add(new JLabel("Selected Customer: " + selectedCustomer));
+        summaryPanel.add(new JLabel("Selected Car: " + selectedCar));
+        
+        // Show selected services and technicians
+        summaryPanel.add(new JLabel("Selected Services:"));
+        for (Map<String, Object> entry : selectedServicesTechnicians) {
+            summaryPanel.add(new JLabel("• " + entry.get("service") + " - Technician: " + entry.get("technician")));
+        }
+        
+        int confirmResult = JOptionPane.showConfirmDialog(
+            frame, summaryPanel, "Confirm Appointment", JOptionPane.OK_CANCEL_OPTION
+        );
+        
+        if (confirmResult == JOptionPane.OK_OPTION) {
+            // Create customer-car relationship if it doesn't exist
+            int customerCarId = SQLFunctions.getOrCreateCustomerCar(conn, customerId, carId);
+            
+            // Begin transaction
+            conn.setAutoCommit(false);
+            try {
+                // Create appointment date/time entry
+                String dateTimeSql = "INSERT INTO CustomerAppointmentDateTime (CUST_CAR_ID, AppointmentDate, AppointmentTime) VALUES (?, ?, ?)";
+                
+                // Format date for SQL Server (YYYY-MM-DD)
+                String formattedDate = selectedYear + "-" + 
+                                    (Integer.parseInt(selectedMonth) < 10 ? "0" + selectedMonth : selectedMonth) + "-" + 
+                                    (Integer.parseInt(selectedDay) < 10 ? "0" + selectedDay : selectedDay);
+                
+                PreparedStatement dateTimeStmt = conn.prepareStatement(dateTimeSql, new String[]{"APPOINTMENT_DATE_TIME_ID"});
+                dateTimeStmt.setInt(1, customerCarId);
+                dateTimeStmt.setString(2, formattedDate);
+                dateTimeStmt.setString(3, selectedTime);
+                dateTimeStmt.executeUpdate();
+                
+                ResultSet rs = dateTimeStmt.getGeneratedKeys();
+                int appointmentDateTimeId = 0;
+                if (rs.next()) {
+                    appointmentDateTimeId = rs.getInt(1);
+                } else {
+                    throw new SQLException("Failed to get ID for new appointment datetime");
+                }
+                
+                // For each service, create the appointment service entry
+                for (Map<String, Object> serviceEntry : selectedServicesTechnicians) {
+                    int techId = (int) serviceEntry.get("technicianId");
+                    int servId = (int) serviceEntry.get("serviceId");
+                    
+                    // Get or create tech-service relationship
+                    int techServiceId = SQLFunctions.getOrCreateTechService(conn, techId, servId);
+                    
+                    // Create appointment service entry
+                    String serviceSql = "INSERT INTO CustomerAppointmentService (CAR_DATE_TIME_ID, TECHNICAN_SERIVCE_ID) VALUES (?, ?)";
+                    PreparedStatement serviceStmt = conn.prepareStatement(serviceSql);
+                    serviceStmt.setInt(1, appointmentDateTimeId);
+                    serviceStmt.setInt(2, techServiceId);
+                    serviceStmt.executeUpdate();
+                }
+                
+                // Commit transaction
+                conn.commit();
+                
+                // Build details for confirmation message
+                StringBuilder detailsBuilder = new StringBuilder();
+                detailsBuilder.append("Date: ").append(appointmentDate).append("\n");
+                detailsBuilder.append("Time: ").append(selectedTime).append("\n");
+                detailsBuilder.append("Customer: ").append(selectedCustomer).append("\n");
+                detailsBuilder.append("Car: ").append(selectedCar).append("\n");
+                detailsBuilder.append("Services:\n");
+                
+                double totalCost = 0;
+                for (Map<String, Object> entry : selectedServicesTechnicians) {
+                    String serviceName = (String) entry.get("service");
+                    String techName = (String) entry.get("technician");
+                    
+                    // Get service cost
+                    String costQuery = "SELECT Cost FROM Services WHERE ServiceName = ?";
+                    PreparedStatement costStmt = conn.prepareStatement(costQuery);
+                    costStmt.setString(1, serviceName);
+                    ResultSet costRs = costStmt.executeQuery();
+                    
+                    double serviceCost = 0;
+                    if (costRs.next()) {
+                        serviceCost = costRs.getDouble("Cost");
+                        totalCost += serviceCost;
+                    }
+                    
+                    detailsBuilder.append("• ").append(serviceName)
+                                .append(" - $").append(String.format("%.2f", serviceCost))
+                                .append(" (Technician: ").append(techName).append(")\n");
+                }
+                
+                detailsBuilder.append("\nTotal Cost: $").append(String.format("%.2f", totalCost));
+                
+                // Show confirmation
+                JOptionPane.showMessageDialog(
+                    frame, "Appointment Created Successfully!\n\n" + detailsBuilder.toString(),
+                    "Appointment Created", JOptionPane.INFORMATION_MESSAGE
+                );
+                
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        }
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(
+            frame, "Database error: " + ex.getMessage(), 
+            "Error", JOptionPane.ERROR_MESSAGE
+        );
+        ex.printStackTrace();
+    }
+});
+frame.add(createAppointmentButton);
  
 //View all appointments
-  // Replace the viewAppointmentsButton action listener with this improved version:
-
 JButton viewAppointmentsButton = new JButton("View All Appointments");
 viewAppointmentsButton.addActionListener(e -> {
     try (Connection conn = SQLFunctions.getConnection()) {
@@ -695,19 +715,41 @@ viewAppointmentsButton.addActionListener(e -> {
         table.getColumnModel().getColumn(6).setPreferredWidth(80);  // Date column
         table.getColumnModel().getColumn(7).setPreferredWidth(60);  // Time column
         
-        // Make the table sortable (optional)
+        // Make the table sortable
         table.setAutoCreateRowSorter(true);
+        
+        // Set default sort by date then time
+        RowSorter<? extends TableModel> sorter = table.getRowSorter();
+        if (sorter instanceof TableRowSorter) {
+            List<RowSorter.SortKey> sortKeys = new ArrayList<>();
+            // Sort by date (column 6) first, then by time (column 7)
+            sortKeys.add(new RowSorter.SortKey(6, SortOrder.ASCENDING));
+            sortKeys.add(new RowSorter.SortKey(7, SortOrder.ASCENDING));
+            ((TableRowSorter<? extends TableModel>) sorter).setSortKeys(sortKeys);
+        }
         
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setPreferredSize(new Dimension(900, 400));
-        
-
         
         // Create panel with table and buttons
         JPanel tablePanel = new JPanel(new BorderLayout());
         tablePanel.add(scrollPane, BorderLayout.CENTER);
         
         JPanel buttonPanel = new JPanel();
+        
+        // Add reset sort button
+        JButton resetSortButton = new JButton("Sort by Date & Time");
+        resetSortButton.addActionListener(event -> {
+            RowSorter<? extends TableModel> currentSorter = table.getRowSorter();
+            if (currentSorter instanceof TableRowSorter) {
+                List<RowSorter.SortKey> sortKeys = new ArrayList<>();
+                sortKeys.add(new RowSorter.SortKey(6, SortOrder.ASCENDING));
+                sortKeys.add(new RowSorter.SortKey(7, SortOrder.ASCENDING));
+                ((TableRowSorter<? extends TableModel>) currentSorter).setSortKeys(sortKeys);
+            }
+        });
+        buttonPanel.add(resetSortButton);
+        
         tablePanel.add(buttonPanel, BorderLayout.SOUTH);
         
         // Show in a dialog
@@ -725,7 +767,7 @@ viewAppointmentsButton.addActionListener(e -> {
         ex.printStackTrace();
     }
 });
-  frame.add(viewAppointmentsButton);
+frame.add(viewAppointmentsButton);
  
 
   JButton exitButton = new JButton("Exit");
