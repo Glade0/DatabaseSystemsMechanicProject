@@ -356,7 +356,7 @@ createAppointmentButton.addActionListener(e -> {
         JComboBox<String> dateDropdown = new JComboBox<>(appointmentDays);
         
         // Year dropdown (optional - you may want to add future years)
-        String[] years = {"2024", "2025"};
+        String[] years = {"2024"};
         JComboBox<String> yearDropdown = new JComboBox<>(years);
         
         // Create a panel with a nice layout for the date components
